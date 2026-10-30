@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ritmo · Protótipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&family=Instrument+Sans:wght@400..600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* ===========================================
+   TOKENS — same system as the pitch deck
+   =========================================== */
+:root {
+    --cream: #F4EFE6;
+    --cream-2: #EAE2D3;
+    --ink: #1F1B17;
+    --fg-2: #5A5148;
+    --fg-3: #8C8276;
+    --line: rgba(31, 27, 23, .1);
+    --card: rgba(255, 253, 249, .82);
+    --clay: #C8603F;          /* accent + "previsto (IA)" series */
+    --peach: #E9B79F;
+    --blue: #3A6CC4;          /* "realizado" series (validated vs clay on cream) */
+    --neutral: #CFC6B8;
+    /* Status — reserved for risk/alerts, always with icon + label */
+    --good: #2F7D50;
+    --warn: #A86A12;
+    --crit: #B3261E;
+
+    --serif: 'Newsreader', Georgia, serif;
+    --sans: 'Instrument Sans', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+
+    --spring: cubic-bezier(.34, 1.45, .64, 1);
+    --soft: cubic-bezier(.16, 1, .3, 1);
+}
+@supports (transition-timing-function: linear(0, 1)) {
+    :root {
+        --spring: linear(0, 0.028, 0.1, 0.203, 0.323, 0.451, 0.577, 0.696, 0.803, 0.895, 0.97, 1.029, 1.073, 1.102, 1.119, 1.126, 1.124, 1.117, 1.105, 1.09, 1.074, 1.058, 1.042, 1.028, 1.016, 1.006, 0.998, 0.992, 0.988, 0.985, 0.984, 0.984, 0.985, 0.986, 0.988, 0.99, 0.992, 0.994, 0.996, 0.998, 0.999, 1, 1.001, 1.001, 1.002, 1.002, 1.002, 1.002, 1);
+        --soft: linear(0, 0.013, 0.048, 0.098, 0.159, 0.227, 0.297, 0.369, 0.44, 0.507, 0.571, 0.631, 0.686, 0.735, 0.78, 0.819, 0.854, 0.884, 0.91, 0.932, 0.95, 0.965, 0.978, 0.988, 0.996, 1.002, 1.007, 1.01, 1.013, 1.014, 1.015, 1.015, 1.015, 1.014, 1.014, 1.013, 1.012, 1.011, 1.009, 1.008, 1.007, 1.006, 1.006, 1.005, 1.004, 1.003, 1.003, 1.002, 1);
+    }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+    font: 15px/1.5 var(--sans);
+    color: var(--ink);
+    background: var(--cream);
+    -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: inherit; }
+
+/* ===========================================
+   FLUID BACKGROUND
+   =========================================== */
+.bg { position: fixed; inset: -150px; z-index: 0; pointer-events: none; filter: blur(90px); opacity: .55; }
+.bg i { position: absolute; display: block; animation: morph 16s ease-in-out infinite alternate, drift 26s ease-in-out infinite alternate; }
+.bg .o1 { width: 760px; height: 760px; left: 55%; top: -10%; background: radial-gradient(circle, rgba(200, 96, 63, .5), transparent 70%); }
+.bg .o2 { width: 620px; height: 620px; left: -5%; top: 45%; background: radial-gradient(circle, rgba(233, 183, 159, .8), transparent 70%); animation-duration: 13s, 31s; }
+.bg .o3 { width: 520px; height: 520px; left: 35%; top: 70%; background: radial-gradient(circle, rgba(58, 108, 196, .22), transparent 70%); animation-duration: 19s, 22s; }
+@keyframes morph {
+    0% { border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%; }
+    50% { border-radius: 63% 37% 41% 59% / 55% 62% 38% 45%; }
+    100% { border-radius: 38% 62% 56% 44% / 62% 38% 62% 38%; }
+}
+@keyframes drift { to { translate: 80px -60px; rotate: 40deg; } }
+@keyframes spin { to { rotate: 360deg; } }
+
+/* ===========================================
+   APP SHELL
+   =========================================== */
+.app { position: relative; z-index: 1; display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 100vh; }
+.side {
+    position: sticky; top: 0; height: 100vh;
+    padding: 28px 16px 22px;
+    display: flex; flex-direction: column; gap: 30px;
+    border-right: 1px solid var(--line);
+    background: rgba(244, 239, 230, .55);
+    backdrop-filter: blur(14px);
+}
+.brand { display: flex; align-items: center; gap: 12px; padding: 0 10px; font: italic 400 32px/1 var(--serif); letter-spacing: -.02em; }
+.brand .mark {
+    width: 30px; height: 30px;
+    background: radial-gradient(circle at 32% 28%, #FBE3D5, transparent 45%), linear-gradient(140deg, #F0B394, #D97757 45%, #B4502F);
+    animation: morph 9s ease-in-out infinite alternate, spin 22s linear infinite;
+}
+.brand small { display: block; font: 500 10.5px var(--mono); font-style: normal; letter-spacing: .04em; text-transform: uppercase; color: var(--fg-3); margin-top: 6px; }
+
+#nav { position: relative; display: grid; gap: 2px; }
+#nav a {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; border-radius: 12px;
+    text-decoration: none; font-weight: 500; color: var(--fg-2);
+    transition: color .35s ease;
+}
+#nav a:hover { color: var(--ink); }
+#nav a.on { color: var(--cream); }
+#nav .pill {
+    position: absolute; left: 0; right: 0; top: 0; height: 45px;
+    border-radius: 12px; background: var(--ink);
+    transition: transform .75s var(--spring), height .5s var(--soft);
+}
+.side-foot { margin-top: auto; padding: 0 12px; font-size: 12.5px; line-height: 1.5; color: var(--fg-3); }
+.side-foot .badge { margin-top: 10px; }
+
+main { padding: 30px 38px 70px; min-width: 0; }
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px 24px; flex-wrap: wrap; margin-bottom: 26px; }
+.crumb { font: 500 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-3); display: flex; align-items: center; gap: 10px; margin: 0; }
+.crumb::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--clay); }
+h1.title { font: 400 46px/1.05 var(--serif); letter-spacing: -.025em; margin: 10px 0 6px; }
+h1.title em { color: var(--clay); }
+.sub { margin: 0; color: var(--fg-2); max-width: 720px; }
+.top-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* ===========================================
+   PRIMITIVES
+   =========================================== */
+.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--card);
+    font: 500 13px var(--mono); color: var(--fg-2); white-space: nowrap;
+}
+.badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px; border: 1px dashed var(--fg-3);
+    font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg-3);
+}
+.btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px; border-radius: 999px; border: 0; cursor: pointer;
+    background: var(--ink); color: var(--cream); font-weight: 600;
+    transition: transform .5s var(--spring), background .3s;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: scale(.97); }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid rgba(31, 27, 23, .25); }
+.btn.accent { background: var(--clay); }
+.btn:focus-visible, #nav a:focus-visible, .seg button:focus-visible, summary:focus-visible { outline: 2px solid var(--clay); outline-offset: 3px; }
+
+.label { font: 500 11.5px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); }
+.muted { color: var(--fg-2); }
+.small { font-size: 13px; }
+.mono { font-family: var(--mono); }
+
+/* Status chips (risk levels, alerts) */
+.status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 8px; border-radius: 999px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+.status .i { width: 16px; height: 16px; stroke-width: 2.2; }
+.status.good { color: var(--good); background: rgba(47, 125, 80, .1); }
+.status.warn { color: var(--warn); background: rgba(168, 106, 18, .11); }
+.status.crit { color: var(--crit); background: rgba(179, 38, 30, .1); }
+
+/* ===========================================
+   LAYOUT GRIDS + CARDS
+   =========================================== */
+.grid { display: grid; gap: 18px; }
+#view > * + * { margin-top: 18px; }
+.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cols-main { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); align-items: start; }
+.kpis { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+
+.card {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 22px 24px;
+    backdrop-filter: blur(10px);
+    animation: rise .95s var(--spring) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes rise { from { opacity: 0; transform: translateY(24px) scale(.985); filter: blur(6px); } }
+.card-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.card-h h2 { font: 400 24px/1.15 var(--serif); letter-spacing: -.01em; margin: 4px 0 0; }
+.card-h p { margin: 4px 0 0; color: var(--fg-2); font-size: 14px; }
+
+/* KPI tiles */
+.kpi { padding: 18px 20px; }
+.kpi .v { display: flex; align-items: baseline; gap: 6px; margin: 8px 0 4px; font: 400 40px/1 var(--serif); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.kpi .v small { font: 500 14px var(--mono); color: var(--fg-3); letter-spacing: 0; }
+.kpi .d { font-size: 12.5px; color: var(--fg-2); }
+
+/* Risk banner */
+.risk { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.15fr); gap: 26px; align-items: center; }
+.risk h2 { font: 400 30px/1.12 var(--serif); letter-spacing: -.015em; margin: 12px 0 8px; }
+.risk h2 em { color: var(--clay); }
+.factors { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.factors li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: 14px; line-height: 1.45; color: var(--fg-2); }
+.factors li .i { width: 18px; height: 18px; margin-top: 1px; }
+.sev-alto { color: var(--crit); }
+.sev-moderado { color: var(--warn); }
+.sev-baixo { color: var(--fg-3); }
+
+/* Gauge */
+.gauge { position: relative; width: 132px; height: 132px; flex: none; }
+.gauge svg { width: 100%; height: 100%; }
+.g-bg { fill: none; stroke: var(--cream-2); stroke-width: 10; }
+.g-fg { fill: none; stroke-width: 10; stroke-linecap: round; stroke-dasharray: 100; animation: gauge 1.8s var(--soft) .25s both; }
+.g-fg.good { stroke: var(--good); } .g-fg.warn { stroke: var(--warn); } .g-fg.crit { stroke: var(--crit); }
+@keyframes gauge { from { stroke-dashoffset: 100; } }
+.g-val { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font: 400 38px/1 var(--serif); }
+.g-val small { font: 500 13px var(--mono); color: var(--fg-3); }
+.g-val span { display: block; font: 500 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--fg-3); margin-top: 4px; }
+
+/* Legends */
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--fg-2); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.sw { display: inline-block; width: 14px; height: 10px; border-radius: 3px; }
+.sw.real { background: var(--blue); }
+.sw.pred { background: repeating-linear-gradient(135deg, rgba(200, 96, 63, .45) 0 3px, transparent 3px 6px); border: 1.5px solid var(--clay); }
+.sw.commit { height: 0; border-top: 2.5px solid var(--ink); border-radius: 0; }
+.sw.lreal { height: 0; border-top: 2.5px solid var(--blue); border-radius: 0; }
+.sw.lproj { height: 0; border-top: 2.5px dotted var(--clay); border-radius: 0; }
+.sw.lideal { height: 0; border-top: 2px dashed var(--fg-3); border-radius: 0; }
+.sw.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); }
+.sw.dot.hi { background: var(--clay); }
+.sw.pos { background: var(--blue); } .sw.neu { background: var(--neutral); } .sw.neg { background: var(--clay); }
+
+/* ===========================================
+   CHARTS (SVG) — thin marks, recessive grid,
+   spring-grown bars, drawn lines, CSS crosshair
+   =========================================== */
+svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { font: 500 11px var(--mono); fill: var(--fg-3); }
+.chart text.dl { fill: var(--ink); }
+.chart .gl { stroke: rgba(31, 27, 23, .07); }
+.chart .axis { stroke: rgba(31, 27, 23, .3); stroke-width: 1.5; }
+.chart .hit { fill: transparent; }
+.chart g[data-tip]:hover .bar { filter: brightness(1.08); }
+.bar { transform-box: fill-box; transform-origin: 50% 100%; animation: grow 1.05s var(--spring) both; animation-delay: calc(var(--i) * 55ms + 150ms); }
+.bar.real { fill: var(--blue); }
+.bar.pred { fill: url(#hatch); stroke: var(--clay); stroke-width: 2; }
+@keyframes grow { from { transform: scaleY(0); } }
+.whisk { stroke: var(--clay); stroke-width: 2; fill: none; }
+.commit { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.ln { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.ln.real { stroke: var(--blue); }
+.ln.proj { stroke: var(--clay); stroke-dasharray: 1 7; }
+.ln.ideal { stroke: var(--fg-3); stroke-width: 2; stroke-dasharray: 6 6; }
+.ln.scope { stroke: var(--fg-3); stroke-width: 1.5; }
+.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.6s var(--soft) .2s forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.late { opacity: 0; animation: fadein .8s ease 1.3s forwards; }
+@keyframes fadein { to { opacity: 1; } }
+.col rect { fill: transparent; }
+.col .xh { stroke: var(--fg-3); stroke-dasharray: 3 3; opacity: 0; transition: opacity .15s; }
+.col:hover .xh { opacity: 1; }
+.pt { fill: var(--blue); stroke: #fff; stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: pop .7s var(--spring) both; animation-delay: calc(var(--i) * 10ms + 200ms); }
+.pt.hi { fill: var(--clay); }
+@keyframes pop { from { transform: scale(0); } }
+.pref { stroke-width: 1.5; stroke-dasharray: 5 5; }
+.pref.p50 { stroke: var(--fg-2); } .pref.p85 { stroke: var(--clay); }
+.sep { stroke: rgba(31, 27, 23, .08); stroke-dasharray: 2 4; }
+.end-dot { fill: var(--clay); }
+.now-dot { fill: var(--blue); stroke: #fff; stroke-width: 2; }
+
+/* Horizontal bars (HTML) */
+.hbars { position: relative; padding-top: 24px; --vw: 76px; }
+.hb { display: grid; grid-template-columns: var(--lw) minmax(0, 1fr) var(--vw); gap: 12px; align-items: center; padding: 7px 0; font: 500 13px var(--mono); color: var(--fg-2); }
+.hb-l { display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hb-v { text-align: right; white-space: nowrap; }
+.hb .track { height: 16px; position: relative; display: flex; gap: 2px; }
+.hb .fill { height: 100%; border-radius: 0 4px 4px 0; background: var(--blue); transform-origin: left; animation: growx 1.05s var(--spring) both; animation-delay: calc(var(--i) * 70ms + 200ms); }
+.hb .fill.rest { background: rgba(58, 108, 196, .32); border-radius: 0 4px 4px 0; }
+.hb .fill.done { border-radius: 0; }
+.hb.hot { color: var(--crit); } .hb.hot .fill { background: var(--crit); } .hb.hot .fill.rest { background: rgba(179, 38, 30, .3); }
+.sw.rest { background: rgba(58, 108, 196, .32); }
+.hb.accent .fill { background: var(--clay); }
+.hb .i { width: 15px; height: 15px; stroke-width: 2.2; }
+@keyframes growx { from { transform: scaleX(0); } }
+.ref-all { position: absolute; top: 18px; bottom: 0; left: calc(var(--lw) + 12px + (100% - var(--lw) - var(--vw) - 24px) * var(--f)); border-left: 2px dashed var(--fg-3); pointer-events: none; }
+.ref-all span { position: absolute; top: -20px; left: 0; transform: translateX(-50%); font: 500 11px var(--mono); color: var(--fg-3); white-space: nowrap; }
+
+/* Stacked sentiment bars */
+.stack-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) 34px; gap: 12px; align-items: center; padding: 8px 0; font-size: 14px; }
+.stack { display: flex; gap: 2px; height: 18px; }
+.stack i { display: block; height: 100%; transform-origin: left; animation: growx 1s var(--spring) both; animation-delay: calc(var(--i) * 80ms + 200ms); }
+.stack i:first-child { border-radius: 4px 0 0 4px; }
+.stack i:last-child { border-radius: 0 4px 4px 0; }
+.stack .pos { background: var(--blue); } .stack .neu { background: var(--neutral); } .stack .neg { background: var(--clay); }
+
+/* Tooltip */
+.tip {
+    position: fixed; left: 0; top: 0; z-index: 100; pointer-events: none;
+    max-width: 280px; padding: 10px 12px; border-radius: 12px;
+    background: var(--ink); color: var(--cream); font-size: 13px; line-height: 1.45;
+    box-shadow: 0 14px 30px -12px rgba(31, 27, 23, .5);
+    opacity: 0; transition: opacity .15s;
+}
+.tip.on { opacity: 1; }
+.tip b { font-weight: 600; }
+
+/* Tables */
+.tbl-wrap { overflow-x: auto; margin: 0 -6px; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl th { text-align: left; font: 500 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--fg-3); padding: 8px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tbl td { padding: 11px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tbl tr { animation: rise .8s var(--spring) both; animation-delay: calc(var(--i, 0) * 35ms + 250ms); }
+.tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.stage { display: inline-block; padding: 3px 10px; border-radius: 999px; font: 500 12px var(--mono); white-space: nowrap; border: 1px solid var(--line); }
+.stage.s-prog { background: rgba(58, 108, 196, .1); }
+.stage.s-rev { background: rgba(200, 96, 63, .12); }
+.stage.s-test { background: rgba(31, 27, 23, .07); }
+.stage.s-done { color: var(--fg-3); }
+.stage.s-todo { border-style: dashed; color: var(--fg-2); }
+.flag { display: inline-flex; align-items: center; gap: 5px; color: var(--crit); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.flag .i { width: 15px; height: 15px; stroke-width: 2.2; }
+details.data { margin-top: 14px; }
+details.data summary { cursor: pointer; font: 500 12px var(--mono); color: var(--fg-2); letter-spacing: .06em; }
+details.data table { margin-top: 10px; }
+
+/* Segmented control */
+.seg { display: inline-flex; padding: 4px; border-radius: 999px; background: var(--cream-2); position: relative; }
+.seg button { position: relative; z-index: 1; border: 0; background: none; padding: 7px 16px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 13px; color: var(--fg-2); transition: color .3s; }
+.seg button.on { color: var(--ink); }
+.seg .knob { position: absolute; top: 4px; bottom: 4px; left: 0; border-radius: 999px; background: #fff; box-shadow: 0 2px 8px rgba(31, 27, 23, .12); transition: transform .7s var(--spring), width .5s var(--soft); }
+
+/* Alerts list */
+.alerts { list-style: none; margin: 0; padding: 0; }
+.alerts li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 13px 0; border-top: 1px solid var(--line); animation: rise .8s var(--spring) both; animation-delay: calc(var(--i, 0) * 60ms + 300ms); }
+.alerts li:first-child { border-top: 0; }
+.alerts .i { width: 20px; height: 20px; margin-top: 1px; }
+.alerts p { margin: 0; font-size: 14px; line-height: 1.45; }
+.alerts a { font: 500 12px var(--mono); text-decoration: none; color: var(--fg-2); white-space: nowrap; padding-top: 2px; }
+.alerts a:hover { color: var(--clay); }
+
+/* Info boxes */
+.note { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 14px 16px; border-radius: 14px; background: rgba(31, 27, 23, .045); font-size: 14px; line-height: 1.5; color: var(--fg-2); }
+.note .i { width: 20px; height: 20px; color: var(--fg-3); }
+.suggest { margin-top: 18px; padding: 18px; border-radius: 16px; border: 1px solid rgba(200, 96, 63, .35); background: rgba(200, 96, 63, .06); }
+.suggest p { margin: 6px 0 14px; font-size: 15px; line-height: 1.5; }
+.big { font: 400 56px/1 var(--serif); letter-spacing: -.02em; }
+.big small { font: 500 14px var(--mono); color: var(--fg-3); }
+.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 12px; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 28px 1fr; gap: 8px; font-size: 14px; line-height: 1.5; color: var(--fg-2); }
+.steps li::before { content: counter(s); width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: var(--cream); display: grid; place-items: center; font: 500 12px var(--mono); }
+.steps b { color: var(--ink); font-weight: 600; }
+
+/* Retro */
+textarea.retro { width: 100%; min-height: 250px; resize: vertical; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: #fff; line-height: 1.6; font-size: 14px; }
+textarea.retro:focus { outline: 2px solid var(--clay); outline-offset: 1px; }
+.comments { list-style: none; margin: 0; padding: 0; }
+.comments li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; padding: 12px 0; border-top: 1px solid var(--line); font-size: 14.5px; line-height: 1.5; animation: rise .8s var(--spring) both; animation-delay: calc(var(--i, 0) * 40ms + 200ms); }
+.comments li:first-child { border-top: 0; }
+.comments .tags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; }
+.tag { padding: 2px 9px; border-radius: 999px; font: 500 11.5px var(--mono); white-space: nowrap; border: 1px solid var(--line); color: var(--fg-2); }
+.tag.pos { background: rgba(58, 108, 196, .12); }
+.tag.neg { background: rgba(200, 96, 63, .15); }
+mark.th { background: none; color: inherit; text-decoration: underline 2px rgba(200, 96, 63, .55); text-underline-offset: 3px; }
+b.pos { font-weight: 600; background: rgba(58, 108, 196, .13); border-radius: 4px; padding: 0 3px; }
+b.neg { font-weight: 600; background: rgba(200, 96, 63, .17); border-radius: 4px; padding: 0 3px; }
+
+/* Data / settings */
+.sources { display: grid; gap: 10px; }
+.source { display: grid; grid-template-columns: 40px 1fr auto; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: #fff; }
+.source.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.source.off { opacity: .6; }
+.source .ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--cream-2); }
+.source b { display: block; font-weight: 600; }
+.source span { font-size: 13px; color: var(--fg-2); }
+.form { display: grid; gap: 18px; }
+.field { display: grid; gap: 8px; }
+.field > span { display: flex; justify-content: space-between; font-weight: 600; font-size: 14px; }
+.field > span output { font: 500 13px var(--mono); color: var(--clay); }
+.field select, .field input[type=number] { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: #fff; }
+input[type=range] { width: 100%; accent-color: var(--clay); }
+.preview { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-top: 16px; margin-top: 18px; border-top: 1px solid var(--line); }
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.checks li { display: grid; grid-template-columns: 24px 1fr; gap: 10px; font-size: 14.5px; line-height: 1.45; }
+.checks .i { color: var(--good); width: 20px; height: 20px; }
+.checks small { display: block; color: var(--fg-2); font-size: 13px; }
+
+/* Toast */
+.toast { position: fixed; left: 50%; bottom: 26px; z-index: 120; transform: translate(-50%, 30px); opacity: 0; padding: 12px 18px; border-radius: 999px; background: var(--ink); color: var(--cream); font-size: 14px; transition: transform .7s var(--spring), opacity .3s; pointer-events: none; }
+.toast.on { transform: translate(-50%, 0); opacity: 1; }
+
+/* ===========================================
+   RESPONSIVE
+   =========================================== */
+@media (max-width: 1180px) {
+    .cols-main { grid-template-columns: 1fr; }
+    .risk { grid-template-columns: auto minmax(0, 1fr); }
+    .risk .factors-wrap { grid-column: 1 / -1; }
+}
+@media (max-width: 980px) {
+    .app { grid-template-columns: 1fr; }
+    .side { position: sticky; top: 0; z-index: 5; height: auto; flex-direction: row; align-items: center; gap: 14px; padding: 12px 16px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .brand { font-size: 24px; padding: 0; }
+    .brand small, .side-foot { display: none; }
+    #nav { display: flex; overflow-x: auto; scrollbar-width: none; gap: 4px; }
+    #nav a { white-space: nowrap; padding: 9px 12px; }
+    #nav a.on { background: var(--ink); }
+    #nav .pill { display: none; }
+    .cols-2 { grid-template-columns: 1fr; }
+    main { padding: 22px 16px 60px; }
+    h1.title { font-size: 36px; }
+}
+@media (max-width: 640px) {
+    .risk { grid-template-columns: 1fr; justify-items: start; }
+    #nav a span.t { display: none; }
+    .stack-row { grid-template-columns: 110px minmax(0, 1fr) 28px; font-size: 13px; }
+    .card { padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .15s !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- Shared SVG defs (hatch for "previsto" bars) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+        <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="3" height="7" fill="rgba(200,96,63,.42)"/>
+        </pattern>
+    </defs>
+</svg>
+
+<div class="bg" aria-hidden="true"><i class="o1"></i><i class="o2"></i><i class="o3"></i></div>
+
+<div class="app">
+    <aside class="side">
+        <div class="brand"><span class="mark" aria-hidden="true"></span><div>Ritmo<small>métricas ágeis com IA</small></div></div>
+        <nav id="nav" aria-label="Telas do protótipo">
+            <span class="pill" id="pill" aria-hidden="true"></span>
+        </nav>
+        <div class="side-foot">
+            Protótipo acadêmico<br>Engenharia de Software I · UFPR
+            <div><span class="badge">dados simulados</span></div>
+        </div>
+    </aside>
+
+    <main>
+        <header class="top">
+            <div>
+                <p class="crumb" id="crumb"></p>
+                <h1 class="title" id="title"></h1>
+                <p class="sub" id="sub"></p>
+            </div>
+            <div class="top-actions">
+                <span class="chip" id="ctx"></span>
+                <button class="btn" id="regen" title="Gera um novo conjunto de sprints simuladas">
+                    <svg class="i" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>Gerar novos dados
+                </button>
+            </div>
+        </header>
+        <div id="view"></div>
+    </main>
+</div>
+
+<div class="tip" id="tip" role="tooltip"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ===========================================
+   UTILITIES
+   =========================================== */
+const $ = (s, el = document) => el.querySelector(s);
+const sum = (a) => a.reduce((x, y) => x + y, 0);
+const mean = (a) => (a.length ? sum(a) / a.length : 0);
+const std = (a) => { const m = mean(a); return Math.sqrt(mean(a.map((x) => (x - m) ** 2))); };
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); const i = (s.length - 1) * p; const lo = Math.floor(i); return s[lo] + (s[Math.ceil(i)] - s[lo]) * (i - lo); };
+const fmt = (v, d = 0) => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* Seeded PRNG so every "simulação" is reproducible */
+function mulberry32(a) {
+    return () => {
+        a |= 0; a = (a + 0x6d2b79f5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+const randn = (r) => { let u = 0, v = 0; while (!u) u = r(); while (!v) v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+const pick = (r, a) => a[Math.floor(r() * a.length)];
+const shuffle = (r, a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+/* Ordinary least squares: y = a·x + b, plus residual standard error */
+function linreg(xs, ys) {
+    const mx = mean(xs), my = mean(ys);
+    let num = 0, den = 0;
+    xs.forEach((x, i) => { num += (x - mx) * (ys[i] - my); den += (x - mx) ** 2; });
+    const a = den ? num / den : 0, b = my - a * mx;
+    const res = ys.map((y, i) => y - (a * xs[i] + b));
+    return { a, b, sd: Math.sqrt(sum(res.map((e) => e * e)) / Math.max(1, xs.length - 2)), predict: (x) => a * x + b };
+}
+
+/* Split n points into k days (integers, sum preserved) */
+function split(r, n, k) {
+    const w = Array.from({ length: k }, () => 0.15 + 2 * r() ** 2);
+    const raw = w.map((x) => (x / sum(w)) * n);
+    const out = raw.map(Math.floor);
+    raw.map((x, i) => [x - Math.floor(x), i]).sort((p, q) => q[0] - p[0]).slice(0, n - sum(out)).forEach(([, i]) => out[i]++);
+    return out;
+}
+
+/* ===========================================
+   ICONS
+   =========================================== */
+const ic = (d) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const I = {
+    home: ic('<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>'),
+    sprint: ic('<path d="M4 4v16h16"/><path d="M7 8l4 3 3-1 5 6"/>'),
+    flow: ic('<path d="M3 12h4l3-7 4 14 3-7h4"/>'),
+    team: ic('<circle cx="8" cy="9" r="3"/><circle cx="16.5" cy="9" r="3"/><path d="M2.5 19c0-3 2.4-5 5.5-5s5.5 2 5.5 5M11 19c0-3 2.4-5 5.5-5S22 16 22 19"/>'),
+    retro: ic('<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>'),
+    data: ic('<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/>'),
+    alert: ic('<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.3"/>'),
+    info: ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8v.3"/>'),
+    check: ic('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16.2 9.6"/>'),
+    lock: ic('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+    ai: ic('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>'),
+    upload: ic('<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>'),
+    dice: ic('<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r=".8"/><circle cx="15" cy="15" r=".8"/><circle cx="15" cy="9" r=".8"/><circle cx="9" cy="15" r=".8"/>'),
+    shield: ic('<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>'),
+};
+const RANK = { 'Em progresso': 1, 'Revisão': 1, 'Teste': 1, 'A fazer': 2, 'Concluído': 3 };
+const LEVEL = {
+    baixo: { cls: 'good', label: 'Risco baixo', icon: I.check },
+    moderado: { cls: 'warn', label: 'Risco moderado', icon: I.info },
+    alto: { cls: 'crit', label: 'Risco alto', icon: I.alert },
+};
+const statusChip = (lvl) => `<span class="status ${LEVEL[lvl].cls}">${LEVEL[lvl].icon}${LEVEL[lvl].label}</span>`;
+
+/* ===========================================
+   STATE
+   =========================================== */
+const DEFAULT_RETRO = [
+    'A daily ficou mais curta e o alinhamento melhorou bastante.',
+    'Muito retrabalho por causa de bugs que voltaram do teste.',
+    'Os critérios de aceite das histórias estavam confusos e o PO mudou o escopo no meio da sprint.',
+    'O pipeline de deploy travou duas vezes e atrasou as entregas.',
+    'Senti sobrecarga no fim da sprint, muita pressão com o prazo.',
+    'A revisão de código demorou demais, os PRs ficaram parados.',
+    'Gostei da comunicação com o cliente, feedback rápido.',
+    'Sem bugs críticos em produção nesta sprint, ótimo trabalho nos testes.',
+    'O quadro do Jira estava desatualizado e ficou difícil saber o status.',
+    'Pair programming ajudou a destravar a tarefa de pagamentos.',
+].join('\n');
+
+const state = {
+    seed: 1307,
+    team: 5,
+    day: 6,
+    vol: 'media',
+    scenario: 'risco',
+    burnMode: 'down',
+    moves: {},              // item id -> member (suggestions applied on the Team screen)
+    retroText: DEFAULT_RETRO,
+};
+let SIM, M;
+
+/* ===========================================
+   SIMULATION — the prototype's data source
+   12 past sprints + current sprint (13) in progress
+   =========================================== */
+const TITLES = [
+    'Login com SSO', 'Exportar relatório em PDF', 'Filtro por período no histórico', 'Corrigir cálculo de frete',
+    'Notificações por e-mail', 'Tela de onboarding', 'Cache de consultas', 'Integração com API de pagamentos',
+    'Ajustar permissões de perfil', 'Refatorar módulo de busca', 'Dashboard de vendas', 'Upload de anexos',
+    'Testes de regressão do checkout', 'Paginação na listagem', 'Logs de auditoria', 'Modo escuro no app',
+];
+
+function simulate(p) {
+    const r = mulberry32(p.seed);
+    const D = 10, N = 12;
+    const members = Array.from({ length: p.team }, (_, i) => 'Dev ' + String.fromCharCode(65 + i));
+    const base = 6.5 * p.team;
+    const noise = { baixa: 2, media: 3.5, alta: 6 }[p.vol];
+
+    const sprints = [];
+    for (let i = 0; i < N; i++) {
+        const trend = i * 0.3;
+        const committed = Math.round(base + 4 + trend + randn(r) * 1.5);
+        const velocity = clamp(Math.round(base + trend + randn(r) * noise), 6, committed + 3);
+        sprints.push({ name: 'S' + (i + 1), committed, velocity, rework: clamp(10 + randn(r) * 2.5 - i * 0.2, 2, 25), daily: split(r, velocity, D) });
+    }
+
+    // Completed items of the last 6 sprints → flow metrics (time per stage, in days)
+    let id = 101;
+    const items = [];
+    sprints.slice(-6).forEach((s, k) => {
+        let left = s.velocity;
+        while (left > 0) {
+            const pts = Math.min(left, pick(r, [1, 2, 3, 3, 5, 5, 8]));
+            left -= pts;
+            const prog = 0.4 + pts * 0.3 + Math.abs(randn(r)) * 0.9;
+            const review = 0.8 + Math.abs(randn(r)) * 2.6;
+            const test = 0.3 + Math.abs(randn(r)) * 0.8;
+            const wait = 0.5 + Math.abs(randn(r)) * 3;
+            const cycle = prog + review + test;
+            items.push({ id: 'T-' + id++, pts, prog, review, test, wait, cycle, lead: cycle + wait, sprint: s.name, t: k * D + r() * D });
+        }
+    });
+
+    // Current sprint backlog
+    const committed = Math.round(mean(sprints.slice(-4).map((s) => s.velocity)) + 1);
+    const titles = shuffle(r, TITLES);
+    const backlog = [];
+    let left = committed, t = 0;
+    while (left > 0) {
+        const pts = Math.min(left, pick(r, [1, 2, 2, 3, 3, 3, 5, 5, 8]));
+        left -= pts;
+        backlog.push({ id: 'T-' + id++, title: titles[t++ % titles.length], pts, status: 'A fazer', age: 0 });
+    }
+    // Planning assigns work balanced by points (greedy: biggest item → least-loaded member)
+    const load = Object.fromEntries(members.map((m) => [m, 0]));
+    [...backlog].sort((x, y) => y.pts - x.pts).forEach((it) => {
+        const m = members.reduce((x, y) => (load[y] < load[x] ? y : x));
+        it.who = m;
+        load[m] += it.pts;
+    });
+    const heavy = members[Math.min(2, members.length - 1)];
+    if (p.scenario === 'sobrecarga') backlog.forEach((it) => { if (r() < 0.4) it.who = heavy; });
+    const pace = { realista: 1.2, risco: 0.85, sobrecarga: 1.05 }[p.scenario];
+    const target = (mean(sprints.slice(-4).map((s) => s.velocity)) / D) * pace * p.day;
+    let burned = 0;
+    const done = [];
+    for (const it of shuffle(r, backlog)) {
+        if (burned >= target - 0.5) break;
+        if (burned + it.pts > target + 2) continue;
+        it.status = 'Concluído';
+        burned += it.pts;
+        done.push(it);
+    }
+    const daily = Array(p.day).fill(0);
+    done.forEach((it, k) => {
+        const d = Math.min(p.day - 1, Math.floor(((k + r()) / done.length) * p.day));
+        it.doneDay = d + 1;
+        daily[d] += it.pts;
+    });
+    backlog.filter((b) => b.status !== 'Concluído').forEach((it) => {
+        const x = r();
+        it.status = x < 0.38 ? 'Em progresso' : x < 0.58 ? 'Revisão' : x < 0.68 ? 'Teste' : 'A fazer';
+        if (it.status !== 'A fazer') it.age = Math.min(p.day, 1 + Math.floor(Math.abs(randn(r)) * 2.2) + (p.scenario === 'risco' && r() < 0.35 ? 3 : 0));
+    });
+
+    return { D, members, sprints, items, cur: { committed, backlog, daily, day: p.day, burned } };
+}
+
+/* ===========================================
+   ANALYTICS — "a IA" do protótipo
+   · Regressão linear → velocidade das próximas sprints
+   · Regressão + Monte Carlo → conclusão da sprint
+   · Regras explicáveis → fatores de risco e alertas
+   =========================================== */
+function compute(sim, seed) {
+    const { D, sprints, items, cur, members } = sim;
+    const last8 = sprints.slice(-8), last4 = sprints.slice(-4), prev4 = sprints.slice(-8, -4);
+
+    // Velocity forecast (OLS over last 8 sprints, 80% interval)
+    const fit = linreg(last8.map((_, i) => i), last8.map((s) => s.velocity));
+    const err = Math.max(1, 1.28 * fit.sd);
+    const fc = [fit.predict(8), fit.predict(9)];
+
+    const avgVel = mean(last4.map((s) => s.velocity)), avgVelPrev = mean(prev4.map((s) => s.velocity));
+    const predOf = (arr) => mean(arr.map((s) => Math.min(1, s.velocity / s.committed)));
+    const predictability = predOf(last4), predictabilityPrev = predOf(prev4);
+    const rework = mean(last4.map((s) => s.rework)), reworkPrev = mean(prev4.map((s) => s.rework));
+
+    // Flow
+    const cycles = items.map((i) => i.cycle);
+    const p50 = pct(cycles, 0.5), p85 = pct(cycles, 0.85), lead50 = pct(items.map((i) => i.lead), 0.5);
+    const recent = items.filter((i) => i.t >= 3 * D), older = items.filter((i) => i.t < 3 * D);
+    const p50recent = pct(recent.map((i) => i.cycle), 0.5), p50older = pct(older.map((i) => i.cycle), 0.5);
+    const throughput = items.length / 6;
+    const stages = [['wait', 'Espera no backlog'], ['prog', 'Em progresso'], ['review', 'Revisão'], ['test', 'Teste']]
+        .map(([k, name]) => ({ k, name, avg: mean(items.map((i) => i[k])), p85: pct(items.map((i) => i[k]), 0.85) }));
+    const bottleneck = stages.slice(1).reduce((a, b) => (b.avg > a.avg ? b : a));
+    const bottleShare = bottleneck.avg / mean(cycles);
+
+    // Burndown + projection (slope from OLS on remaining work, anchored at today)
+    const rem = [cur.committed];
+    cur.daily.forEach((d) => rem.push(rem[rem.length - 1] - d));
+    const remaining = rem[rem.length - 1];
+    const slope = linreg(rem.map((_, i) => i), rem).a;
+    const projAt = (d) => Math.max(0, remaining + slope * (d - cur.day));
+    const projEnd = projAt(D);
+    const zeroDay = remaining === 0 ? cur.day : slope < 0 ? cur.day + remaining / -slope : Infinity;
+
+    // Monte Carlo: resample daily throughput (history + current sprint weighted ×3)
+    const pool = sprints.flatMap((s) => s.daily).concat(cur.daily, cur.daily, cur.daily);
+    const rr = mulberry32(seed + 7);
+    const daysLeft = D - cur.day, RUNS = 4000;
+    let ok = 0;
+    const finish = [];
+    for (let k = 0; k < RUNS; k++) {
+        let s = 0, d = 0;
+        while (s < remaining && d < 3 * D) { s += pool[Math.floor(rr() * pool.length)]; d++; }
+        if (d <= daysLeft) ok++;
+        finish.push(cur.day + d);
+    }
+    const prob = ok / RUNS;
+    const finish50 = Math.ceil(pct(finish, 0.5)), finish85 = Math.ceil(pct(finish, 0.85));
+    const level = prob >= 0.8 ? 'baixo' : prob >= 0.5 ? 'moderado' : 'alto';
+
+    // Aging work in progress (days in stage above historical p85)
+    const stageKey = { 'Em progresso': 'prog', 'Revisão': 'review', 'Teste': 'test' };
+    const p85By = Object.fromEntries(stages.map((s) => [s.k, s.p85]));
+    cur.backlog.forEach((it) => {
+        const k = stageKey[it.status];
+        it.limit = k ? p85By[k] : null;
+        it.aging = k ? it.age > p85By[k] : false;
+    });
+    const aging = cur.backlog.filter((it) => it.aging).sort((a, b) => b.age - b.limit - (a.age - a.limit));
+
+    // Workload (sprint points per member, done + remaining) — used to balance, never to rank
+    const loads = members.map((m) => {
+        const mine = cur.backlog.filter((b) => b.who === m);
+        const done = sum(mine.filter((b) => b.status === 'Concluído').map((b) => b.pts));
+        return { who: m, pts: sum(mine.map((b) => b.pts)), done, open: sum(mine.map((b) => b.pts)) - done, n: mine.length };
+    });
+    const avgLoad = mean(loads.map((l) => l.pts));
+    loads.forEach((l) => { l.over = l.pts >= 1.4 * avgLoad && l.pts - avgLoad >= 3; });
+    const byLoad = [...loads].sort((a, b) => b.pts - a.pts);
+    const hi = byLoad[0], lo = byLoad[byLoad.length - 1];
+    // Balance: fair share (1/n) ÷ share held by the most-loaded member → 100 = even split
+    const maxShare = hi.pts / Math.max(1, sum(loads.map((l) => l.pts)));
+    const balance = maxShare ? Math.round(100 / members.length / maxShare) : 100;
+    let suggestion = null;
+    if (hi.over) {
+        const gap = (hi.pts - lo.pts) / 2;
+        const item = cur.backlog.filter((b) => b.who === hi.who && b.status === 'A fazer').sort((a, b) => Math.abs(a.pts - gap) - Math.abs(b.pts - gap))[0];
+        suggestion = { from: hi.who, to: lo.who, item };
+    }
+
+    // Explainable risk factors
+    const curRate = cur.burned / cur.day, needRate = remaining / Math.max(1, daysLeft);
+    const factors = [];
+    if (remaining > 0 && curRate < needRate) factors.push({ sev: curRate < needRate * 0.75 ? 'alto' : 'moderado', text: `Ritmo atual de ${fmt(curRate, 1)} pts/dia; para fechar a sprint seriam necessários ${fmt(needRate, 1)} pts/dia.` });
+    if (cur.committed > fc[0] + err) factors.push({ sev: 'moderado', text: `Compromisso de ${cur.committed} pts acima da velocidade prevista pela regressão (${fmt(fc[0])} ± ${fmt(err)} pts).` });
+    if (aging.length) factors.push({ sev: aging.length >= 3 ? 'alto' : 'moderado', text: `${aging.length} ${aging.length > 1 ? 'itens parados' : 'item parado'} além do tempo usual (p85) do estágio.` });
+    const over = loads.filter((l) => l.over);
+    if (over.length) factors.push({ sev: 'moderado', text: `Carga concentrada: ${over.map((o) => o.who).join(', ')} com ${fmt((over[0].pts / avgLoad - 1) * 100)}% acima da média do time.` });
+    if (rework - reworkPrev > 1.5) factors.push({ sev: 'baixo', text: `Retrabalho subiu de ${fmt(reworkPrev, 1)}% para ${fmt(rework, 1)}%.` });
+
+    return {
+        sim, fit, err, fc, avgVel, avgVelPrev, predictability, predictabilityPrev, rework, reworkPrev,
+        p50, p85, lead50, p50recent, p50older, throughput, stages, bottleneck, bottleShare,
+        rem, remaining, slope, projAt, projEnd, zeroDay, prob, finish50, finish85, level, daysLeft,
+        aging, loads, avgLoad, balance, maxShare, suggestion, factors, curRate, needRate,
+    };
+}
+
+/* ===========================================
+   NLP (prototype) — lexicon + theme keywords
+   for retrospective comments
+   =========================================== */
+const THEMES = [
+    { k: 'com', name: 'Comunicação', words: ['comunicação', 'reunião', 'reuniões', 'daily', 'alinhamento', 'alinhar', 'conversa', 'informação', 'slack', 'mensagem', 'feedback'], tip: 'Rever formato das cerimônias e os canais de comunicação do time.' },
+    { k: 'req', name: 'Requisitos e escopo', words: ['requisito', 'escopo', 'história', 'story', 'critério', 'mudança', 'mudou', 'po', 'cliente', 'prioridade'], tip: 'Refinar critérios de aceite antes do planning e combinar regras para mudança de escopo.' },
+    { k: 'qual', name: 'Qualidade e testes', words: ['bug', 'bugs', 'teste', 'testes', 'retrabalho', 'erro', 'qualidade', 'review', 'revisão', 'regressão'], tip: 'Investigar a causa raiz dos bugs e fortalecer testes automatizados e revisão em par.' },
+    { k: 'proc', name: 'Processo e ferramentas', words: ['jira', 'board', 'quadro', 'processo', 'ferramenta', 'pipeline', 'ambiente', 'deploy', 'ci', 'build'], tip: 'Estabilizar o pipeline e combinar uma rotina para manter o quadro atualizado.' },
+    { k: 'carga', name: 'Carga e bem-estar', words: ['sobrecarga', 'cansado', 'cansada', 'prazo', 'pressão', 'carga', 'estresse', 'corrido'], tip: 'Revisar o compromisso da sprint e a distribuição de carga entre o time.' },
+];
+const POS = ['bom', 'boa', 'ótimo', 'ótima', 'melhorou', 'melhor', 'ajudou', 'funcionou', 'gostei', 'rápido', 'rápida', 'claro', 'clara', 'eficiente', 'excelente', 'tranquilo', 'tranquila', 'fluiu', 'organizado', 'evoluiu', 'destravar'];
+const NEG = ['ruim', 'atraso', 'atrasou', 'atrasada', 'difícil', 'problema', 'confuso', 'confusa', 'lento', 'lenta', 'bloqueado', 'bloqueada', 'travou', 'faltou', 'falta', 'demorou', 'demorada', 'sobrecarga', 'cansado', 'cansada', 'pressão', 'retrabalho', 'bug', 'bugs', 'instável', 'quebrou', 'perdido', 'parado', 'desatualizado'];
+const NEGATORS = ['não', 'nao', 'nem', 'sem', 'nunca'];
+// Short keywords match exactly; longer ones also match inflections (prefix): "critério" → "critérios"
+const hit = (w, list) => list.some((k) => (k.length >= 4 ? w.startsWith(k) : w === k));
+
+function analyzeRetro(text) {
+    const comments = text.split('\n').map((s) => s.trim()).filter(Boolean).map((raw) => {
+        let score = 0, prev = '';
+        const themes = new Set();
+        const html = raw.replace(/([\p{L}]+)|([^\p{L}]+)/gu, (_, w, other) => {
+            if (other) return esc(other);
+            const lw = w.toLowerCase();
+            let out = w;
+            const th = THEMES.find((t) => hit(lw, t.words));
+            if (th) { themes.add(th.k); out = `<mark class="th">${w}</mark>`; }
+            const flip = NEGATORS.includes(prev);
+            if (hit(lw, POS)) { const s = flip ? -1 : 1; score += s; out = `<b class="${s > 0 ? 'pos' : 'neg'}">${out}</b>`; }
+            else if (hit(lw, NEG)) { const s = flip ? 1 : -1; score += s; out = `<b class="${s > 0 ? 'pos' : 'neg'}">${out}</b>`; }
+            prev = lw;
+            return out;
+        });
+        const sentiment = score > 0 ? 'pos' : score < 0 ? 'neg' : 'neu';
+        return { raw, html, sentiment, themes: themes.size ? [...themes] : ['outros'] };
+    });
+    const all = [...THEMES, { k: 'outros', name: 'Outros', tip: '' }];
+    const themes = all.map((t) => {
+        const cs = comments.filter((c) => c.themes.includes(t.k));
+        return { ...t, n: cs.length, pos: cs.filter((c) => c.sentiment === 'pos').length, neu: cs.filter((c) => c.sentiment === 'neu').length, neg: cs.filter((c) => c.sentiment === 'neg').length };
+    }).filter((t) => t.n).sort((a, b) => b.n - a.n || b.neg - a.neg);
+    const top = themes.filter((t) => t.k !== 'outros').sort((a, b) => b.neg - a.neg || b.n - a.n)[0];
+    return { comments, themes, top, pos: comments.filter((c) => c.sentiment === 'pos').length, neg: comments.filter((c) => c.sentiment === 'neg').length };
+}
+
+/* ===========================================
+   CHARTS
+   =========================================== */
+const roundTop = (x, y, w, h) => { const r = Math.min(4, h, w / 2); return `M${x} ${y + h}V${y + r}Q${x} ${y} ${x + r} ${y}H${x + w - r}Q${x + w} ${y} ${x + w} ${y + r}V${y + h}Z`; };
+
+function velocityChart(m) {
+    const W = 640, H = 280, L = 40, R = 14, T = 34, B = 30;
+    const bars = m.sim.sprints.slice(-8).map((s) => ({ name: s.name, v: s.velocity, c: s.committed, kind: 'real' }));
+    bars.push({ name: 'S13', v: m.fc[0], e: m.err, c: m.sim.cur.committed, kind: 'pred', now: true });
+    bars.push({ name: 'S14', v: m.fc[1], e: m.err, kind: 'pred' });
+    const max = Math.ceil((Math.max(...bars.map((b) => Math.max(b.v + (b.e || 0), b.c || 0))) + 6) / 10) * 10;
+    const pw = W - L - R, ph = H - T - B, band = pw / bars.length, bw = band * 0.56;
+    const y = (v) => T + ph - (v / max) * ph;
+    let s = '';
+    [0, max / 2, max].forEach((g) => { s += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}"/><text x="${L - 8}" y="${y(g) + 4}" text-anchor="end">${g}</text>`; });
+    bars.forEach((b, i) => {
+        const x = L + i * band + (band - bw) / 2, top = y(b.v), base = T + ph, cx = x + bw / 2;
+        const tip = b.kind === 'real'
+            ? `${b.name}|Realizado: ${b.v} pts|Comprometido: ${b.c} pts (${fmt((b.v / b.c) * 100)}%)`
+            : `${b.name}${b.now ? ' · em andamento' : ''}|Previsto (IA): ${fmt(b.v)} ± ${fmt(b.e)} pts${b.c ? `|Comprometido: ${b.c} pts` : ''}`;
+        s += `<g data-tip="${esc(tip)}"><rect class="hit" x="${L + i * band}" y="${T - 20}" width="${band}" height="${ph + 20}"/>`;
+        s += `<path class="bar ${b.kind}" style="--i:${i}" d="${roundTop(x, top, bw, base - top)}"/>`;
+        if (b.e) {
+            const y1 = y(b.v + b.e), y2 = y(Math.max(0, b.v - b.e));
+            s += `<path class="whisk late" d="M${cx} ${y1}V${y2}M${cx - 6} ${y1}h12M${cx - 6} ${y2}h12"/><text class="dl late" x="${cx}" y="${y1 - 8}" text-anchor="middle">${fmt(b.v)}±${fmt(b.e)}</text>`;
+        }
+        if (b.c) s += `<path class="commit late" d="M${x - 5} ${y(b.c)}h${bw + 10}"/>`;
+        s += `<text x="${cx}" y="${H - 8}" text-anchor="middle">${b.name}</text></g>`;
+    });
+    s += `<line class="axis" x1="${L}" x2="${W - R}" y1="${T + ph}" y2="${T + ph}"/>`;
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Velocidade por sprint: realizado nas últimas 8 sprints, comprometido, e previsão da IA para as sprints 13 e 14">${s}</svg>`;
+}
+
+function burnChart(m, mode, compact) {
+    const { D, cur } = m.sim;
+    const W = 640, H = compact ? 260 : 300, L = 40, R = 20, T = 30, B = 30;
+    const pw = W - L - R, ph = H - T - B, C = cur.committed;
+    const max = Math.ceil((C + 2) / 10) * 10;
+    const x = (d) => L + (d / D) * pw, y = (v) => T + ph - (v / max) * ph;
+    const val = (remaining) => (mode === 'down' ? remaining : C - remaining);
+    const ideal = (d) => C * (1 - d / D);
+    let s = '';
+    [0, max / 2, max].forEach((g) => { s += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}"/><text x="${L - 8}" y="${y(g) + 4}" text-anchor="end">${g}</text>`; });
+    for (let d = 0; d <= D; d += compact ? 2 : 1) s += `<text x="${x(d)}" y="${H - 8}" text-anchor="middle">${d === 0 ? 'início' : 'D' + d}</text>`;
+    s += `<line class="axis" x1="${L}" x2="${W - R}" y1="${T + ph}" y2="${T + ph}"/>`;
+    if (mode === 'up') s += `<path class="ln scope" d="M${x(0)} ${y(C)}H${x(D)}"/><text x="${x(D)}" y="${y(C) - 8}" text-anchor="end">escopo · ${C} pts</text>`;
+    s += `<path class="ln ideal" d="M${x(0)} ${y(val(ideal(0)))}L${x(D)} ${y(val(ideal(D)))}"/>`;
+    s += `<path class="ln real draw" pathLength="1" d="M${m.rem.map((v, d) => `${x(d)} ${y(val(v))}`).join('L')}"/>`;
+    const endD = Math.min(D, m.zeroDay);
+    const ex = x(endD), ey = y(val(m.projAt(endD)));
+    s += `<g class="late"><path class="ln proj" d="M${x(cur.day)} ${y(val(m.remaining))}L${ex} ${ey}"/><circle class="end-dot" cx="${ex}" cy="${ey}" r="5"/>`;
+    const endLabel = m.projEnd > 0.5 ? `projeção: ${fmt(m.projEnd)} pts sobrando no D${D}` : `conclusão prevista no D${fmt(m.zeroDay, 1)}`;
+    const ly = mode === 'down' ? T + 14 : T + ph - 12;
+    s += `<path d="M${ex} ${mode === 'down' ? ly + 6 : ly - 16}V${mode === 'down' ? ey - 8 : ey + 8}" stroke="#8C8276"/><text class="dl" x="${ex + 4}" y="${ly}" text-anchor="end">${endLabel}</text></g>`;
+    s += `<circle class="now-dot" cx="${x(cur.day)}" cy="${y(val(m.remaining))}" r="5"/>`;
+    for (let d = 0; d <= D; d++) {
+        const real = d <= cur.day ? m.rem[d] : null;
+        const tip = [`Dia ${d}${d === cur.day ? ' (hoje)' : ''}`,
+            real != null ? (mode === 'down' ? `Restante: ${real} pts` : `Concluído: ${C - real} pts`) : `Projeção: ${fmt(val(m.projAt(d)))} pts`,
+            `Ideal: ${fmt(val(ideal(d)))} pts`].join('|');
+        s += `<g class="col" data-tip="${esc(tip)}"><rect x="${x(d) - pw / D / 2}" y="${T}" width="${pw / D}" height="${ph}"/><line class="xh" x1="${x(d)}" x2="${x(d)}" y1="${T}" y2="${T + ph}"/></g>`;
+    }
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${mode === 'down' ? 'Burndown' : 'Burnup'} da sprint 13: real até o dia ${cur.day}, ideal e projeção da IA">${s}</svg>`;
+}
+
+function cycleScatter(m) {
+    const { D, items, sprints } = m.sim;
+    const W = 640, H = 300, L = 40, R = 84, T = 18, B = 30;
+    const pw = W - L - R, ph = H - T - B;
+    const maxY = Math.ceil(Math.max(...items.map((i) => i.cycle)) + 1);
+    const x = (t) => L + (t / (6 * D)) * pw, y = (v) => T + ph - (v / maxY) * ph;
+    let s = '';
+    [0, Math.round(maxY / 2), maxY].forEach((g) => { s += `<line class="gl" x1="${L}" x2="${L + pw}" y1="${y(g)}" y2="${y(g)}"/><text x="${L - 8}" y="${y(g) + 4}" text-anchor="end">${g}d</text>`; });
+    sprints.slice(-6).forEach((sp, k) => {
+        if (k) s += `<line class="sep" x1="${x(k * D)}" x2="${x(k * D)}" y1="${T}" y2="${T + ph}"/>`;
+        s += `<text x="${x(k * D + D / 2)}" y="${H - 8}" text-anchor="middle">${sp.name}</text>`;
+    });
+    s += `<line class="axis" x1="${L}" x2="${L + pw}" y1="${T + ph}" y2="${T + ph}"/>`;
+    s += `<line class="pref p50" x1="${L}" x2="${L + pw}" y1="${y(m.p50)}" y2="${y(m.p50)}"/><text class="dl" x="${L + pw + 6}" y="${y(m.p50) + 4}">p50 · ${fmt(m.p50, 1)}d</text>`;
+    s += `<line class="pref p85" x1="${L}" x2="${L + pw}" y1="${y(m.p85)}" y2="${y(m.p85)}"/><text class="dl" x="${L + pw + 6}" y="${y(m.p85) + 4}">p85 · ${fmt(m.p85, 1)}d</text>`;
+    items.forEach((it, i) => { s += `<circle class="pt ${it.cycle > m.p85 ? 'hi' : ''}" style="--i:${i}" cx="${x(it.t)}" cy="${y(it.cycle)}" r="5"/>`; });
+    items.forEach((it) => { s += `<circle class="hit" cx="${x(it.t)}" cy="${y(it.cycle)}" r="11" data-tip="${esc(`${it.id} · ${it.pts} pts · ${it.sprint}|Cycle time: ${fmt(it.cycle, 1)} dias|Lead time: ${fmt(it.lead, 1)} dias`)}"/>`; });
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cycle time de ${items.length} itens concluídos nas últimas 6 sprints, com percentis 50 e 85">${s}</svg>`;
+}
+
+function hbars(rows, { max, ref, refLabel, unit = '', dec = 0, lw = 92 }) {
+    const f = (v) => clamp(v / max, 0, 1);
+    return `<div class="hbars" style="--lw:${lw}px">${ref != null ? `<div class="ref-all" style="--f:${f(ref)}"><span>${refLabel}</span></div>` : ''}${rows.map((r, i) => `
+        <div class="hb ${r.cls || ''}" data-tip="${esc(r.tip || '')}">
+            <span class="hb-l">${r.icon || ''}${esc(r.label)}</span>
+            <div class="track">${(r.parts || [{ v: r.v }]).map((pt) => `<div class="fill ${pt.cls || ''}" style="width:${f(pt.v) * 100}%; --i:${i}"></div>`).join('')}</div>
+            <span class="hb-v">${fmt(r.v, dec)}${unit}</span>
+        </div>`).join('')}</div>`;
+}
+
+const gauge = (p, lvl, caption) => `<div class="gauge"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="g-bg" cx="60" cy="60" r="50"/><circle class="g-fg ${LEVEL[lvl].cls}" cx="60" cy="60" r="50" pathLength="100" transform="rotate(-90 60 60)" style="stroke-dashoffset:${(100 - p * 100).toFixed(1)}"/></svg><div class="g-val"><div><b class="num" data-to="${Math.round(p * 100)}">${Math.round(p * 100)}</b><small>%</small><span>${caption}</span></div></div></div>`;
+
+const delta = (d, unit, dec, lowerIsBetter) => {
+    if (Math.abs(d) < 10 ** -dec / 2) return 'estável vs. 4 sprints anteriores';
+    const better = lowerIsBetter ? d < 0 : d > 0;
+    return `${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d), dec)}${unit} vs. 4 sprints anteriores · ${better ? 'melhor' : 'pior'}`;
+};
+
+const kpi = (i, label, value, unit, dec, d, extra = '') => `
+    <article class="card kpi" style="--i:${i}">
+        <span class="label">${label}</span>${extra}
+        <div class="v"><span class="num" data-to="${value}" data-dec="${dec}">${fmt(value, dec)}</span><small>${unit}</small></div>
+        <div class="d">${d}</div>
+    </article>`;
+
+/* ===========================================
+   SCREENS
+   =========================================== */
+function riskCard(m, i = 0) {
+    return `
+    <article class="card risk" style="--i:${i}">
+        ${gauge(m.prob, m.level, 'chance de<br>concluir')}
+        <div>
+            ${statusChip(m.level)}
+            <h2>Sprint 13: <em>${m.prob >= 0.8 ? 'no ritmo' : m.prob >= 0.5 ? 'atenção ao ritmo' : 'risco de atraso'}</em></h2>
+            <p class="muted small" style="margin:0">Faltam <b>${m.remaining} de ${m.sim.cur.committed} pts</b> e ${m.daysLeft} ${m.daysLeft > 1 ? 'dias' : 'dia'}. Previsão de conclusão: dia ${m.finish50 > 30 ? '30+' : m.finish50} (p50) · dia ${m.finish85 > 30 ? '30+' : m.finish85} (p85).</p>
+        </div>
+        <div class="factors-wrap">
+            <span class="label">Por que a IA indica isso</span>
+            <ul class="factors" style="margin-top:10px">
+                ${m.factors.length ? m.factors.slice(0, 4).map((f) => `<li><span class="sev-${f.sev}">${f.sev === 'baixo' ? I.info : I.alert}</span><span>${f.text}</span></li>`).join('') : `<li><span style="color:var(--good)">${I.check}</span><span>Nenhum fator de risco relevante nesta sprint.</span></li>`}
+            </ul>
+        </div>
+    </article>`;
+}
+
+function alertsList(m) {
+    const list = [];
+    m.factors.filter((f) => f.sev !== 'baixo').slice(0, 1).forEach((f) => list.push({ sev: f.sev, text: f.text, href: '#sprint', link: 'Sprint' }));
+    m.aging.slice(0, 2).forEach((it) => list.push({ sev: 'alto', text: `<b>${it.id}</b> “${esc(it.title)}” há ${it.age} dias em ${it.status} (usual: até ${fmt(it.limit, 1)} d).`, href: '#sprint', link: 'Sprint' }));
+    if (m.suggestion) list.push({ sev: 'moderado', text: `Carga concentrada em <b>${m.suggestion.from}</b>. Há uma sugestão de redistribuição.`, href: '#time', link: 'Time' });
+    list.push({ sev: 'baixo', text: `<b>${m.bottleneck.name}</b> concentra ${fmt(m.bottleShare * 100)}% do cycle time: é o gargalo do fluxo.`, href: '#fluxo', link: 'Fluxo' });
+    const R = analyzeRetro(state.retroText);
+    if (R.top) list.push({ sev: 'baixo', text: `Tema mais crítico na retrospectiva: <b>${R.top.name}</b> (${R.top.neg} de ${R.top.n} comentários negativos).`, href: '#retro', link: 'Retro' });
+    const icon = { alto: `<span class="sev-alto">${I.alert}</span>`, moderado: `<span class="sev-moderado">${I.alert}</span>`, baixo: `<span class="sev-baixo">${I.info}</span>` };
+    return `<ul class="alerts">${list.map((a, i) => `<li style="--i:${i}">${icon[a.sev]}<p>${a.text}</p><a href="${a.href}">${a.link} →</a></li>`).join('')}</ul>`;
+}
+
+const SCREENS = {
+    visao: {
+        nav: 'Visão geral', icon: I.home, crumb: 'Time Exemplo · Sprint 13',
+        title: 'Visão geral', sub: 'Indicadores do time e alertas automáticos de risco, atualizados a cada dia da sprint.',
+        render: (m) => `
+        ${riskCard(m, 0)}
+        <div class="kpis" style="margin-top:18px">
+            ${kpi(1, 'Velocidade média', m.avgVel, 'pts', 1, delta(m.avgVel - m.avgVelPrev, ' pts', 1))}
+            ${kpi(2, 'Previsão · S14', m.fc[1], `± ${fmt(m.err)} pts`, 0, 'Regressão linear · intervalo de 80%')}
+            ${kpi(3, 'Previsibilidade', m.predictability * 100, '%', 0, delta((m.predictability - m.predictabilityPrev) * 100, ' p.p.', 1))}
+            ${kpi(4, 'Cycle time · p50', m.p50, 'dias', 1, `${m.p50recent <= m.p50older ? '▼' : '▲'} ${fmt(Math.abs(m.p50recent - m.p50older), 1)} d nas 3 últimas sprints`)}
+            ${kpi(5, 'Retrabalho', m.rework, '%', 1, delta(m.rework - m.reworkPrev, ' p.p.', 1, true))}
+        </div>
+        <div class="grid cols-2" style="margin-top:18px">
+            <article class="card" style="--i:6">
+                <div class="card-h"><div><span class="label">Velocidade</span><h2>Realizado e previsto</h2></div>
+                    <div class="legend"><span><i class="sw real"></i>Realizado</span><span><i class="sw pred"></i>Previsto (IA)</span><span><i class="sw commit"></i>Comprometido</span></div></div>
+                ${velocityChart(m)}
+            </article>
+            <article class="card" style="--i:7">
+                <div class="card-h"><div><span class="label">Sprint 13 · dia ${m.sim.cur.day} de ${m.sim.D}</span><h2>Burndown</h2></div>
+                    <div class="legend"><span><i class="sw lreal"></i>Real</span><span><i class="sw lproj"></i>Projeção</span><span><i class="sw lideal"></i>Ideal</span></div></div>
+                ${burnChart(m, 'down', true)}
+            </article>
+        </div>
+        <div class="grid cols-main" style="margin-top:18px">
+            <article class="card" style="--i:8">
+                <div class="card-h"><div><span class="label">Gerados automaticamente</span><h2>Alertas</h2></div></div>
+                ${alertsList(m)}
+            </article>
+            <article class="card" style="--i:9">
+                <div class="card-h"><div><span class="label">Visão agregada do time</span><h2>Saúde do time</h2></div></div>
+                <div style="display:flex; gap:22px; align-items:center; flex-wrap:wrap">
+                    <div class="big"><span class="num" data-to="${m.balance}">${m.balance}</span><small>/100</small></div>
+                    <p class="muted small" style="margin:0; flex:1; min-width:180px">Equilíbrio da carga entre os membros: quanto mais perto de 100, mais distribuído está o trabalho da sprint.</p>
+                </div>
+                <div class="note" style="margin-top:18px">${I.shield}<span>A visão geral mostra apenas métricas do <b>time e do processo</b>. Não há ranking de pessoas.</span></div>
+            </article>
+        </div>`,
+    },
+
+    sprint: {
+        nav: 'Sprint atual', icon: I.sprint, crumb: 'Sprint 13 · em andamento',
+        title: 'Sprint atual', sub: 'Burndown/burnup com projeção da IA, chance de conclusão e itens que precisam de atenção.',
+        render: (m) => `
+        <div class="grid cols-main">
+            <article class="card" style="--i:0">
+                <div class="card-h">
+                    <div><span class="label">Dia ${m.sim.cur.day} de ${m.sim.D}</span><h2 id="burnTitle">${state.burnMode === 'down' ? 'Burndown' : 'Burnup'}</h2></div>
+                    <div class="seg" id="burnSeg" role="tablist"><span class="knob"></span>
+                        <button role="tab" data-mode="down" class="${state.burnMode === 'down' ? 'on' : ''}">Burndown</button>
+                        <button role="tab" data-mode="up" class="${state.burnMode === 'up' ? 'on' : ''}">Burnup</button>
+                    </div>
+                </div>
+                <div class="legend" style="margin-bottom:6px"><span><i class="sw lreal"></i>Real</span><span><i class="sw lproj"></i>Projeção (IA)</span><span><i class="sw lideal"></i>Ideal</span></div>
+                <div id="burnWrap">${burnChart(m, state.burnMode, false)}</div>
+                <details class="data"><summary>Ver dados em tabela</summary>
+                    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Dia</th><th class="num">Concluído no dia</th><th class="num">Restante</th><th class="num">Ideal</th></tr></thead><tbody>
+                    ${m.rem.map((v, d) => `<tr><td>${d === 0 ? 'início' : 'D' + d}</td><td class="num">${d ? m.sim.cur.daily[d - 1] : '—'}</td><td class="num">${v}</td><td class="num">${fmt(m.sim.cur.committed * (1 - d / m.sim.D), 1)}</td></tr>`).join('')}
+                    </tbody></table></div>
+                </details>
+            </article>
+            <div class="grid">
+                <article class="card" style="--i:1">
+                    <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap">
+                        ${gauge(m.prob, m.level, 'chance de<br>concluir')}
+                        <div style="flex:1; min-width:160px">
+                            ${statusChip(m.level)}
+                            <p class="small muted" style="margin:10px 0 0">Ritmo atual <b>${fmt(m.curRate, 1)}</b> pts/dia · necessário <b>${fmt(m.needRate, 1)}</b> pts/dia.</p>
+                            <p class="small muted" style="margin:6px 0 0">Conclusão estimada: <b>dia ${m.finish50 > 30 ? '30+' : m.finish50}</b> (p50), <b>dia ${m.finish85 > 30 ? '30+' : m.finish85}</b> (p85).</p>
+                        </div>
+                    </div>
+                </article>
+                <article class="card" style="--i:2">
+                    <div class="card-h"><div><span class="label">Transparência</span><h2>Como a IA calculou</h2></div><span style="color:var(--clay)">${I.ai}</span></div>
+                    <ol class="steps">
+                        <li><span><b>Regressão linear</b> sobre o trabalho restante de cada dia dá a inclinação (${fmt(m.slope, 1)} pts/dia), que projeta o fim da sprint.</span></li>
+                        <li><span><b>Monte Carlo:</b> 4.000 simulações sorteando o throughput diário do histórico (com peso maior para a sprint atual) estimam a chance de concluir no prazo.</span></li>
+                        <li><span><b>Regras explicáveis</b> geram os fatores de risco: ritmo, compromisso vs. previsão, itens parados e carga.</span></li>
+                    </ol>
+                </article>
+            </div>
+        </div>
+        <article class="card" style="--i:3; margin-top:18px">
+            <div class="card-h"><div><span class="label">${m.sim.cur.backlog.length} itens · ${m.sim.cur.committed} pts</span><h2>Backlog da sprint</h2></div>
+                <p>Itens parados há mais tempo que o p85 histórico do estágio são sinalizados.</p></div>
+            <div class="tbl-wrap"><table class="tbl">
+                <thead><tr><th>ID</th><th>Item</th><th class="num">Pts</th><th>Responsável</th><th>Status</th><th class="num">Dias no status</th><th>Alerta</th></tr></thead>
+                <tbody>${[...m.sim.cur.backlog].sort((a, b) => (b.aging - a.aging) || (RANK[a.status] - RANK[b.status]) || (b.age - a.age)).map((it, i) => `
+                    <tr style="--i:${i}"><td class="mono small">${it.id}</td><td>${esc(it.title)}</td><td class="num">${it.pts}</td><td class="mono small">${it.who}</td>
+                    <td><span class="stage ${{ 'Em progresso': 's-prog', 'Revisão': 's-rev', 'Teste': 's-test', 'Concluído': 's-done', 'A fazer': 's-todo' }[it.status]}">${it.status === 'Concluído' ? '✓ ' : ''}${it.status}${it.status === 'Concluído' ? ` · D${it.doneDay}` : ''}</span></td>
+                    <td class="num">${it.status === 'Concluído' || it.status === 'A fazer' ? '—' : it.age}</td>
+                    <td>${it.aging ? `<span class="flag">${I.alert}parado (p85 ${fmt(it.limit, 1)} d)</span>` : ''}</td></tr>`).join('')}
+                </tbody></table></div>
+        </article>`,
+        after: (v) => {
+            const seg = $('#burnSeg', v);
+            const knob = $('.knob', seg);
+            const place = () => { const on = $('button.on', seg); knob.style.width = on.offsetWidth + 'px'; knob.style.transform = `translateX(${on.offsetLeft}px)`; };
+            requestAnimationFrame(place);
+            seg.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+                state.burnMode = b.dataset.mode;
+                seg.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+                place();
+                $('#burnTitle', v).textContent = state.burnMode === 'down' ? 'Burndown' : 'Burnup';
+                $('#burnWrap', v).innerHTML = burnChart(M, state.burnMode, false);
+            }));
+        },
+    },
+
+    fluxo: {
+        nav: 'Fluxo', icon: I.flow, crumb: 'Últimas 6 sprints',
+        title: 'Fluxo de trabalho', sub: 'Cycle time, lead time e tempo em cada estágio para encontrar gargalos.',
+        render: (m) => `
+        <div class="kpis">
+            ${kpi(0, 'Cycle time · p50', m.p50, 'dias', 1, 'metade dos itens termina até aqui')}
+            ${kpi(1, 'Cycle time · p85', m.p85, 'dias', 1, '85% dos itens terminam até aqui')}
+            ${kpi(2, 'Lead time · p50', m.lead50, 'dias', 1, 'do backlog até a entrega')}
+            ${kpi(3, 'Throughput', m.throughput, 'itens/sprint', 1, `${m.sim.items.length} itens concluídos em 6 sprints`)}
+        </div>
+        <div class="grid cols-main" style="margin-top:18px">
+            <article class="card" style="--i:4">
+                <div class="card-h"><div><span class="label">Cada ponto é um item concluído</span><h2>Cycle time</h2></div>
+                    <div class="legend"><span><i class="sw dot"></i>Item</span><span><i class="sw dot hi"></i>Acima do p85</span></div></div>
+                ${cycleScatter(m)}
+            </article>
+            <article class="card" style="--i:5">
+                <div class="card-h"><div><span class="label">Média por item</span><h2>Tempo em cada estágio</h2></div></div>
+                ${hbars(m.stages.map((s) => ({ label: s.name, v: s.avg, cls: s === m.bottleneck ? 'accent' : '', tip: `${s.name}|Média: ${fmt(s.avg, 1)} dias|p85: ${fmt(s.p85, 1)} dias` })), { max: Math.max(...m.stages.map((s) => s.avg)) * 1.1, unit: ' d', dec: 1, lw: 132 })}
+                <div class="suggest">
+                    <span class="label" style="color:var(--clay)">Gargalo identificado</span>
+                    <p><b>${m.bottleneck.name}</b> responde por <b>${fmt(m.bottleShare * 100)}%</b> do cycle time médio (${fmt(m.bottleneck.avg, 1)} de ${fmt(mean(m.sim.items.map((i) => i.cycle)), 1)} dias).</p>
+                    <p class="small muted" style="margin:0">${m.bottleneck.k === 'review' ? 'Sugestão: limitar o WIP em revisão, combinar um SLA para PRs ou revisar em par.' : m.bottleneck.k === 'test' ? 'Sugestão: automatizar testes de regressão e testar em paralelo ao desenvolvimento.' : 'Sugestão: quebrar itens grandes em partes menores e limitar o WIP.'}</p>
+                </div>
+            </article>
+        </div>`,
+    },
+
+    time: {
+        nav: 'Carga do time', icon: I.team, crumb: 'Sprint 13 · pontos por membro',
+        title: 'Carga do time', sub: 'Distribuição dos pontos da sprint para equilibrar o trabalho, sem avaliar pessoas.',
+        render: (m) => `
+        <div class="grid cols-main">
+            <article class="card" style="--i:0">
+                <div class="card-h"><div><span class="label">Pontos da sprint por membro · anonimizado</span><h2>Distribuição de carga</h2></div>
+                    <div class="legend"><span><i class="sw real"></i>Concluído</span><span><i class="sw rest"></i>Restante</span></div></div>
+                ${hbars(m.loads.map((l) => ({ label: l.who, v: l.pts, parts: [{ v: l.done, cls: 'done' }, { v: l.open, cls: 'rest' }].filter((x) => x.v), cls: l.over ? 'hot' : '', icon: l.over ? I.alert : '', tip: `${l.who}|${l.pts} pts em ${l.n} ${l.n === 1 ? 'item' : 'itens'}|${l.done} concluídos · ${l.open} restantes${l.over ? '|Acima de 1,4× a média do time' : ''}` })), { max: Math.max(...m.loads.map((l) => l.pts), 1) * 1.15, ref: m.avgLoad, refLabel: `média · ${fmt(m.avgLoad, 1)} pts`, unit: ' pts' })}
+                ${m.suggestion ? `
+                <div class="suggest">
+                    <span class="label" style="color:var(--clay); display:flex; gap:6px; align-items:center">${I.ai} Sugestão da IA</span>
+                    ${m.suggestion.item
+                        ? `<p>Mover <b>${m.suggestion.item.id}</b> “${esc(m.suggestion.item.title)}” (${m.suggestion.item.pts} pts, a fazer) de <b>${m.suggestion.from}</b> para <b>${m.suggestion.to}</b>.</p>
+                           <button class="btn accent" id="applyMove">Aplicar sugestão</button>`
+                        : `<p><b>${m.suggestion.from}</b> não tem itens “a fazer” para redistribuir. Considere pair programming nos itens em andamento.</p>`}
+                </div>` : `<div class="note" style="margin-top:18px">${I.check}<span>Nenhuma concentração de carga relevante. O trabalho da sprint está bem distribuído.</span></div>`}
+            </article>
+            <div class="grid">
+                <article class="card" style="--i:1">
+                    <span class="label">Equilíbrio da carga</span>
+                    <div class="big" style="margin:12px 0 8px"><span class="num" data-to="${m.balance}">${m.balance}</span><small>/100</small></div>
+                    <p class="small muted" style="margin:0">O membro mais carregado tem ${fmt(m.maxShare * 100)}% dos pontos da sprint; na divisão igual seriam ${fmt(100 / m.loads.length)}%. 100 = perfeitamente distribuída.</p>
+                </article>
+                <article class="card" style="--i:2">
+                    <div class="card-h"><div><span class="label">Uso responsável</span><h2>Por que esta tela existe</h2></div><span style="color:var(--good)">${I.shield}</span></div>
+                    <ul class="checks">
+                        <li>${I.check}<span>Equilibrar o trabalho <small>A tela serve para equilibrar o trabalho, não para medir quem produz mais.</small></span></li>
+                        <li>${I.check}<span>Membros anonimizados <small>Dev A, B, C… em vez de nomes.</small></span></li>
+                        <li>${I.check}<span>Sem métricas individuais de desempenho <small>Velocidade, cycle time e retrabalho aparecem só no nível do time.</small></span></li>
+                    </ul>
+                </article>
+            </div>
+        </div>`,
+        after: (v) => {
+            const b = $('#applyMove', v);
+            if (!b) return;
+            b.addEventListener('click', () => {
+                const s = M.suggestion;
+                state.moves[s.item.id] = s.to;
+                build();
+                render();
+                toast(`${s.item.id} movido para ${s.to}. Carga e risco recalculados.`);
+            });
+        },
+    },
+
+    retro: {
+        nav: 'Retrospectiva', icon: I.retro, crumb: 'Sprint 12 · comentários do time',
+        title: 'Retrospectiva', sub: 'Análise de linguagem natural dos comentários: temas recorrentes e sentimento.',
+        render: () => `
+        <div class="grid cols-2">
+            <article class="card" style="--i:0">
+                <div class="card-h"><div><span class="label">Um comentário por linha</span><h2>Comentários da retro</h2></div></div>
+                <label for="retroText" class="label" style="position:absolute; left:-9999px">Comentários</label>
+                <textarea class="retro" id="retroText" spellcheck="false">${esc(state.retroText)}</textarea>
+                <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap">
+                    <button class="btn" id="analyze">${I.ai}Analisar comentários</button>
+                    <button class="btn ghost" id="resetRetro">Restaurar exemplo</button>
+                </div>
+            </article>
+            <div id="retroOut"></div>
+        </div>
+        <article class="card" style="--i:3; margin-top:18px">
+            <div class="card-h"><div><span class="label">Temas e sentimento destacados</span><h2>Comentários analisados</h2></div>
+                <div class="legend"><span><b class="pos">positivo</b></span><span><b class="neg">negativo</b></span><span><mark class="th">tema</mark></span></div></div>
+            <div id="retroList"></div>
+        </article>`,
+        after: (v) => {
+            const run = () => {
+                state.retroText = $('#retroText', v).value;
+                const R = analyzeRetro(state.retroText);
+                $('#retroOut', v).innerHTML = retroSummary(R);
+                $('#retroList', v).innerHTML = `<ul class="comments">${R.comments.map((c, i) => `<li style="--i:${i}"><span>${c.html}</span><span class="tags"><span class="tag ${c.sentiment}">${{ pos: 'positivo', neg: 'negativo', neu: 'neutro' }[c.sentiment]}</span>${c.themes.map((k) => `<span class="tag">${k === 'outros' ? 'outros' : THEMES.find((t) => t.k === k).name}</span>`).join('')}</span></li>`).join('')}</ul>`;
+            };
+            $('#analyze', v).addEventListener('click', () => { run(); toast('Comentários analisados.'); });
+            $('#resetRetro', v).addEventListener('click', () => { $('#retroText', v).value = DEFAULT_RETRO; run(); });
+            run();
+        },
+    },
+
+    dados: {
+        nav: 'Dados e privacidade', icon: I.data, crumb: 'Configuração',
+        title: 'Dados e privacidade', sub: 'Fonte de dados, parâmetros da simulação, cuidados éticos e modelos usados.',
+        render: () => `
+        <div class="grid cols-2">
+            <article class="card" style="--i:0">
+                <div class="card-h"><div><span class="label">Fonte de dados</span><h2>De onde vêm as métricas</h2></div></div>
+                <div class="sources">
+                    <div class="source on"><span class="ic">${I.dice}</span><div><b>Gerador de sprints simuladas</b><span>12 sprints de histórico + sprint atual, reproduzível pela semente</span></div><span class="status good">${I.check}Ativo</span></div>
+                    <div class="source off"><span class="ic">${I.upload}</span><div><b>Importar do Jira (CSV)</b><span>Issues, story points, status e datas de transição</span></div><span class="badge">próxima versão</span></div>
+                    <div class="source off"><span class="ic">${I.upload}</span><div><b>Importar do Trello (JSON)</b><span>Cards, listas e histórico de movimentação</span></div><span class="badge">próxima versão</span></div>
+                </div>
+            </article>
+            <article class="card" style="--i:1">
+                <div class="card-h"><div><span class="label">Simulação</span><h2>Parâmetros</h2></div></div>
+                <form class="form" id="simForm">
+                    <label class="field"><span>Cenário</span>
+                        <select name="scenario">
+                            <option value="realista">Realista</option>
+                            <option value="risco">Sprint em risco</option>
+                            <option value="sobrecarga">Sobrecarga de um membro</option>
+                        </select></label>
+                    <label class="field"><span>Tamanho do time <output id="oTeam">${state.team}</output></span><input type="range" name="team" min="4" max="7" value="${state.team}"></label>
+                    <label class="field"><span>Dia atual da sprint <output id="oDay">${state.day} de 10</output></span><input type="range" name="day" min="2" max="9" value="${state.day}"></label>
+                    <label class="field"><span>Volatilidade da velocidade</span>
+                        <select name="vol"><option value="baixa">Baixa</option><option value="media">Média</option><option value="alta">Alta</option></select></label>
+                    <label class="field"><span>Semente</span><input type="number" name="seed" value="${state.seed}"></label>
+                </form>
+                <div class="preview" id="simPreview"></div>
+            </article>
+        </div>
+        <div class="grid cols-2" style="margin-top:18px">
+            <article class="card" style="--i:2">
+                <div class="card-h"><div><span class="label">Considerações éticas</span><h2>Privacidade por padrão</h2></div><span style="color:var(--good)">${I.shield}</span></div>
+                <ul class="checks">
+                    <li>${I.check}<span>Foco no time e no processo <small>Indicadores agregados; nenhuma tela ranqueia pessoas.</small></span></li>
+                    <li>${I.check}<span>Membros anonimizados <small>Identificação genérica (Dev A, Dev B…) em toda a ferramenta.</small></span></li>
+                    <li>${I.check}<span>Explicabilidade <small>Todo alerta vem com os fatores que o geraram.</small></span></li>
+                    <li>${I.check}<span>Sem uso punitivo <small>Métricas apoiam decisões de gestão, não avaliações individuais.</small></span></li>
+                    <li>${I.check}<span>Dados simulados <small>O protótipo não usa nenhum dado pessoal real.</small></span></li>
+                </ul>
+            </article>
+            <article class="card" style="--i:3">
+                <div class="card-h"><div><span class="label">Model card</span><h2>Modelos e limitações</h2></div><span style="color:var(--clay)">${I.ai}</span></div>
+                <div class="tbl-wrap"><table class="tbl">
+                    <thead><tr><th>Técnica</th><th>Usada para</th><th>Limitação</th></tr></thead>
+                    <tbody>
+                        <tr style="--i:0"><td><b>Regressão linear</b></td><td>Prever a velocidade das próximas sprints</td><td class="muted small">Assume tendência linear; histórico curto aumenta o erro</td></tr>
+                        <tr style="--i:1"><td><b>Monte Carlo</b></td><td>Chance de concluir a sprint</td><td class="muted small">Supõe que o futuro se parece com o histórico</td></tr>
+                        <tr style="--i:2"><td><b>Regras + percentis</b></td><td>Itens parados, carga e gargalos</td><td class="muted small">Limiares fixos (p85, 1,4× média)</td></tr>
+                        <tr style="--i:3"><td><b>NLP léxico</b></td><td>Temas e sentimento da retro</td><td class="muted small">Não entende ironia; um LLM poderia substituí-lo</td></tr>
+                    </tbody></table></div>
+            </article>
+        </div>`,
+        after: (v) => {
+            const form = $('#simForm', v);
+            form.addEventListener('submit', (e) => e.preventDefault());
+            form.scenario.value = state.scenario;
+            form.vol.value = state.vol;
+            const preview = () => {
+                $('#simPreview', v).innerHTML = `<span class="label">Resultado</span>${statusChip(M.level)}<span class="chip">${fmt(M.prob * 100)}% de chance de concluir</span><span class="chip">velocidade média ${fmt(M.avgVel, 1)} pts</span>`;
+            };
+            form.addEventListener('input', () => {
+                state.scenario = form.scenario.value;
+                state.vol = form.vol.value;
+                state.team = +form.team.value;
+                state.day = +form.day.value;
+                state.seed = Math.max(1, parseInt(form.seed.value, 10) || 1);
+                state.moves = {};
+                $('#oTeam', v).textContent = state.team;
+                $('#oDay', v).textContent = `${state.day} de 10`;
+                build();
+                updateCtx();
+                preview();
+            });
+            preview();
+        },
+    },
+};
+
+function retroSummary(R) {
+    const max = Math.max(...R.themes.map((t) => t.n), 1);
+    return `
+    <article class="card" style="--i:1">
+        <div class="card-h"><div><span class="label">${R.comments.length} comentários · ${R.pos} positivos · ${R.neg} negativos</span><h2>Temas recorrentes</h2></div>
+            <div class="legend"><span><i class="sw pos"></i>Positivo</span><span><i class="sw neu"></i>Neutro</span><span><i class="sw neg"></i>Negativo</span></div></div>
+        ${R.themes.map((t, i) => `
+            <div class="stack-row" data-tip="${esc(`${t.name}|${t.n} comentários|${t.pos} positivos · ${t.neu} neutros · ${t.neg} negativos`)}">
+                <span>${t.name}</span>
+                <span class="stack" style="width:${(t.n / max) * 100}%">${[['pos', t.pos], ['neu', t.neu], ['neg', t.neg]].filter(([, n]) => n).map(([k, n]) => `<i class="${k}" style="flex:${n}; --i:${i}"></i>`).join('')}</span>
+                <span class="mono small" style="text-align:right">${t.n}</span>
+            </div>`).join('')}
+        ${R.top ? `<div class="suggest"><span class="label" style="color:var(--clay); display:flex; gap:6px; align-items:center">${I.ai} Sugestão para a próxima retro</span><p style="margin-bottom:0"><b>${R.top.name}</b> teve o maior número de comentários negativos. ${R.top.tip}</p></div>` : ''}
+    </article>`;
+}
+
+/* ===========================================
+   SHELL: nav, routing, tooltip, count-up, toast
+   =========================================== */
+let current = 'visao';
+
+const nav = $('#nav');
+Object.entries(SCREENS).forEach(([k, s]) => nav.insertAdjacentHTML('beforeend', `<a href="#${k}" data-k="${k}">${s.icon}<span class="t">${s.nav}</span></a>`));
+
+function movePill() {
+    const a = $(`#nav a[data-k="${current}"]`);
+    const pill = $('#pill');
+    pill.style.transform = `translateY(${a.offsetTop}px)`;
+    pill.style.height = a.offsetHeight + 'px';
+}
+
+function build() {
+    SIM = simulate(state);
+    for (const [id, who] of Object.entries(state.moves)) {
+        const it = SIM.cur.backlog.find((b) => b.id === id);
+        if (it) it.who = who;
+    }
+    M = compute(SIM, state.seed);
+}
+
+function updateCtx() { $('#ctx').textContent = `Time Exemplo · Sprint 13 · dia ${state.day}/10`; }
+
+function render() {
+    const S = SCREENS[current];
+    $('#crumb').textContent = S.crumb;
+    $('#title').textContent = S.title;
+    $('#sub').textContent = S.sub;
+    updateCtx();
+    const v = $('#view');
+    v.innerHTML = S.render(M);
+    S.after?.(v);
+    countUp(v);
+    $('#title').animate([{ opacity: 0, transform: 'translateY(12px)', filter: 'blur(4px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 700, easing: 'cubic-bezier(.16,1,.3,1)' });
+}
+
+function route() {
+    const k = location.hash.slice(1);
+    current = SCREENS[k] ? k : 'visao';
+    nav.querySelectorAll('a').forEach((a) => a.classList.toggle('on', a.dataset.k === current));
+    movePill();
+    render();
+    scrollTo({ top: 0 });
+}
+
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function countUp(root) {
+    root.querySelectorAll('.num[data-to]').forEach((el) => {
+        const to = parseFloat(el.dataset.to), dec = parseInt(el.dataset.dec || '0', 10);
+        if (reduced) { el.textContent = fmt(to, dec); return; }
+        const t0 = performance.now() + 150, dur = 1300;
+        const step = (t) => {
+            const p = clamp((t - t0) / dur, 0, 1);
+            el.textContent = fmt(to * (1 - Math.pow(1 - p, 4)), dec);
+            if (p < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+    });
+}
+
+const tip = $('#tip');
+document.addEventListener('pointermove', (e) => {
+    const t = e.target.closest?.('[data-tip]');
+    if (!t || !t.dataset.tip) { tip.classList.remove('on'); return; }
+    const [head, ...rest] = t.dataset.tip.split('|');
+    tip.innerHTML = `<b>${esc(head)}</b>${rest.map((r) => '<br>' + esc(r)).join('')}`;
+    tip.classList.add('on');
+    const x = Math.min(innerWidth - tip.offsetWidth - 12, e.clientX + 14);
+    const y = e.clientY - tip.offsetHeight - 14;
+    tip.style.transform = `translate(${Math.max(8, x)}px, ${y < 8 ? e.clientY + 18 : y}px)`;
+});
+
+let toastTimer;
+function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('on'), 2600);
+}
+
+$('#regen').addEventListener('click', () => {
+    state.seed = 1 + Math.floor(Math.random() * 99999);
+    state.moves = {};
+    build();
+    render();
+    toast(`Novos dados simulados (semente ${state.seed}).`);
+});
+
+addEventListener('hashchange', route);
+addEventListener('resize', movePill);
+build();
+route();
+document.fonts?.ready.then(movePill);
+</script>
+</body>
+</html>
